@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
-const OAT_PROFILE = "anthropic:your-oat-profile";
+const OAT_PROFILE = "anthropic:ccconmaoy";
 const API_PROFILE = "anthropic:default";
 const AUTH_PROFILES_PATH = join(
   homedir(),
@@ -28,11 +28,63 @@ async function loadState(): Promise<{ lastBaseUrl: string }> {
   try {
     return await readJson(STATE_PATH);
   } catch {
-    return { lastBaseUrl: "https://your-proxy.example.com" };
+    return { lastBaseUrl: "https://aiapi.of.ci" };
   }
 }
 
 export default function register(api: OpenClawPluginApi) {
+  // --- Auto-fallback on billing errors ---
+  // Intercept outgoing messages that contain billing error text.
+  // When detected, rotate to the next auth profile and suppress the error message.
+  api.on("agent_end", async (event, ctx) => {
+    if (!event.success && event.error) {
+      const errMsg = event.error.toLowerCase();
+      const isBilling =
+        errMsg.includes("billing") ||
+        errMsg.includes("credit") ||
+        errMsg.includes("insufficient") ||
+        errMsg.includes("balance") ||
+        errMsg.includes("run out");
+      if (!isBilling) return;
+
+      const cfg = api.runtime.config.loadConfig();
+      const order: string[] = cfg.auth?.order?.anthropic ?? [];
+      if (order.length < 2) {
+        api.logger.warn(
+          `[auth-switch] Billing error on ${order[0] ?? "unknown"}, but no fallback profile available`,
+        );
+        return;
+      }
+
+      const failed = order[0];
+      const next = order[1];
+
+      // Rotate: move failed to end
+      const newOrder = [...order.slice(1), failed];
+      const updated = JSON.parse(JSON.stringify(cfg)) as any;
+      updated.auth ??= {};
+      updated.auth.order ??= {};
+      updated.auth.order.anthropic = newOrder;
+      await api.runtime.config.writeConfigFile(updated);
+
+      api.logger.warn(
+        `[auth-switch] Billing error on ${failed}, auto-switched to ${next}. Restart needed to apply.`,
+      );
+    }
+  });
+
+  // Suppress billing error messages from being sent to users
+  api.on("message_sending", (event, _ctx) => {
+    const content = (event.content ?? "").toLowerCase();
+    if (
+      content.includes("billing error") &&
+      content.includes("run out of credits")
+    ) {
+      api.logger.info("[auth-switch] Suppressed billing error message to user");
+      return { cancel: true };
+    }
+  });
+
   api.registerCommand({
     name: "auth",
     description: "View/switch Anthropic auth mode (OAT / API).",
