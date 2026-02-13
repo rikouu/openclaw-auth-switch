@@ -1,6 +1,6 @@
 # 🔑 OpenClaw Auth Switch Plugin
 
-**[English](#-features)** | **[中文说明](#-中文说明)**
+**English** | **[中文说明](./README_CN.md)**
 
 > Switch between Anthropic OAT and API key authentication — right from your chat.
 
@@ -134,52 +134,3 @@ Issues and PRs welcome! This is a simple plugin — feel free to fork and adapt 
 ## 📄 License
 
 MIT © [rikouu](https://github.com/rikouu)
-
----
-
-<details>
-<summary>🇨🇳 中文说明</summary>
-
-# 🔑 OpenClaw 认证切换插件
-
-> 在聊天中一键切换 Anthropic 的 OAT 和 API Key 认证模式。
-
-**告别手动改配置文件。** 输入 `/auth oat` 或 `/auth api` 即可完成切换。
-
-## ✨ 功能
-
-| 命令 | 说明 |
-|------|------|
-| `/auth` | 查看当前认证状态（模式、Base URL、脱敏密钥） |
-| `/auth oat` | 切换到 OAT 模式（官方 `api.anthropic.com`） |
-| `/auth api` | 切换到 API 模式（自动记住上次的 URL 和 Key） |
-| `/auth api <url> <key>` | 使用新的地址和密钥切换到 API 模式 |
-
-## 为什么需要这个？
-
-使用 OpenClaw + Anthropic 模型时，你可能需要在两种认证方式之间切换：
-
-- **OAT（OAuth Token）**— 官方认证
-- **API Key** — 第三方代理或自定义端点
-
-以前需要手动编辑配置文件、修改 auth order、改 base URL、重启……现在只要 **一条命令 + `/restart`** 搞定！
-
-## 📦 安装
-
-```bash
-# 1. 克隆插件
-git clone https://github.com/rikouu/openclaw-auth-switch.git /opt/openclaw-auth-switch/plugin
-
-# 2. 在 ~/.openclaw/openclaw.json 中注册（见上方英文说明）
-
-# 3. 重启 OpenClaw
-openclaw gateway restart
-```
-
-## 🔒 安全
-
-- 密钥始终脱敏显示（如 `sk-ant-a…abc123`）
-- 所有数据保存在本地配置文件中
-- 无网络请求，纯本地操作
-
-</details>
