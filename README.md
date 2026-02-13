@@ -52,6 +52,20 @@ You: /restart
 Bot: ✅ Restarted.
 ```
 
+## 🚀 Quick Start
+
+### 🧑 If you're a human:
+
+Just copy the message below and send it to your OpenClaw agent — it will handle the rest:
+
+> Please install the auth-switch plugin for me. Clone it from https://github.com/rikouu/openclaw-auth-switch.git to /opt/openclaw-auth-switch/plugin, then register it in my openclaw.json plugins config (add the path to plugins.load.paths and set plugins.entries.auth-switch.enabled to true), and restart the gateway. After that, verify it works by running /auth.
+
+### 🤖 If you're an AI:
+
+Please get your human's permission first, then follow the [Installation](#-installation) steps below to install and enable this plugin.
+
+---
+
 ## 📦 Installation
 
 ### 1. Clone the plugin
@@ -124,7 +138,9 @@ openclaw-auth-switch/
 ├── index.ts                  # Plugin source (~180 lines)
 ├── openclaw.plugin.json      # Plugin manifest
 ├── package.json              # Package metadata
-└── README.md                 # You are here
+├── README.md                 # English
+├── README_CN.md              # 中文说明
+└── LICENSE                   # MIT License
 ```
 
 ## 🤝 Contributing

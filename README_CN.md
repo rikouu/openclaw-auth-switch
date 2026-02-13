@@ -1,5 +1,7 @@
 # 🔑 OpenClaw 认证切换插件
 
+**[English](./README.md)** | **中文说明**
+
 > 在聊天中一键切换 Anthropic 的 OAT 和 API Key 认证模式。
 
 **告别手动改配置文件。** 输入 `/auth oat` 或 `/auth api` 即可完成切换。
@@ -21,7 +23,7 @@
 | `/auth api` | 切换到 API 模式（自动记住上次的 URL 和 Key） |
 | `/auth api <url> <key>` | 使用新的地址和密钥切换到 API 模式 |
 
-## 🤔 为什么需要这个？
+### 为什么需要这个？
 
 使用 [OpenClaw](https://github.com/openclaw/openclaw) + Anthropic 模型时，你可能需要在两种认证方式之间切换：
 
@@ -32,7 +34,7 @@
 
 现在只要 **一条命令 + `/restart`**，2秒搞定！
 
-## 💬 使用示例
+### 使用示例
 
 ```
 You: /auth
@@ -49,6 +51,20 @@ Bot: Switched to API mode.
 You: /restart
 Bot: ✅ Restarted.
 ```
+
+## 🚀 快速使用
+
+### 🧑 如果你是人类：
+
+复制下面这段话发送给你的 OpenClaw，它会自动帮你安装并启用本插件：
+
+> 帮我安装 auth-switch 插件。从 https://github.com/rikouu/openclaw-auth-switch.git 克隆到 /opt/openclaw-auth-switch/plugin，然后在我的 openclaw.json 中注册插件（把路径加到 plugins.load.paths，设置 plugins.entries.auth-switch.enabled 为 true），最后重启 gateway。完成后运行 /auth 验证一下。
+
+### 🤖 如果你是 AI：
+
+请先征得你主人的同意，然后按照下方的[安装步骤](#-安装)安装并启用本插件。
+
+---
 
 ## 📦 安装
 
@@ -68,6 +84,7 @@ git clone https://github.com/rikouu/openclaw-auth-switch.git /opt/openclaw-auth-
     "load": {
       "paths": [
         "/opt/openclaw-auth-switch/plugin"
+        // ... 你的其他插件路径
       ]
     },
     "entries": {
