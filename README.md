@@ -1,5 +1,7 @@
 # 🔑 OpenClaw Auth Switch Plugin
 
+**[English](#-features)** | **[中文说明](#-中文说明)**
+
 > Switch between Anthropic OAT and API key authentication — right from your chat.
 
 **No more editing config files.** Just type `/auth oat` or `/auth api` and you're done.
