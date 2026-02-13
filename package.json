@@ -1,0 +1,8 @@
+{
+  "name": "auth-switch",
+  "version": "1.0.0",
+  "description": "Auth Switch OpenClaw plugin — view/switch Anthropic auth mode (OAT / API)",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  }
+}
