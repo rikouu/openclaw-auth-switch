@@ -139,7 +139,7 @@ export default function register(api: OpenClawPluginApi) {
           const next = JSON.parse(JSON.stringify(cfg)) as any;
           next.auth ??= {};
           next.auth.order ??= {};
-          next.auth.order.anthropic = [OAT_PROFILE, API_PROFILE];
+          next.auth.order.anthropic = [OAT_PROFILE];
           if (next.models?.providers?.anthropic) {
             next.models.providers.anthropic.baseUrl = "https://api.anthropic.com";
             next.models.providers.anthropic.models ??= [];
@@ -185,7 +185,7 @@ export default function register(api: OpenClawPluginApi) {
         const next = JSON.parse(JSON.stringify(cfg)) as any;
         next.auth ??= {};
         next.auth.order ??= {};
-        next.auth.order.anthropic = [API_PROFILE, OAT_PROFILE];
+        next.auth.order.anthropic = [API_PROFILE];
         next.models ??= {};
         next.models.providers ??= {};
         next.models.providers.anthropic ??= {};
