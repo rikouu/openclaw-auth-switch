@@ -3,11 +3,14 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
-const OAT_PROFILE = "anthropic:ccconmaoy";
 const API_PROFILE = "anthropic:default";
 const AUTH_PROFILES_PATH = join(
   homedir(),
   ".openclaw/agents/main/agent/auth-profiles.json",
+);
+const AUTH_JSON_PATH = join(
+  homedir(),
+  ".openclaw/agents/main/agent/auth.json",
 );
 const STATE_PATH = join(homedir(), ".openclaw/auth-switch-state.json");
 
@@ -32,11 +35,41 @@ async function loadState(): Promise<{ lastBaseUrl: string }> {
   }
 }
 
+/** Find the first OAT (token-type) profile in auth-profiles.json */
+async function findOatProfile(): Promise<{
+  id: string;
+  token: string;
+} | null> {
+  try {
+    const data = await readJson(AUTH_PROFILES_PATH);
+    const profiles = data.profiles ?? {};
+    for (const [id, profile] of Object.entries<any>(profiles)) {
+      if (profile.type === "token" && profile.token) {
+        return { id, token: profile.token };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+/** Sync auth.json so the gateway picks up the correct credential on restart */
+async function syncAuthJson(profile: {
+  type: "api_key" | "token";
+  key?: string;
+  token?: string;
+}): Promise<void> {
+  const auth: Record<string, any> = {};
+  if (profile.type === "api_key" && profile.key) {
+    auth.anthropic = { type: "api_key", key: profile.key };
+  } else if (profile.type === "token" && profile.token) {
+    auth.anthropic = { type: "api_key", key: profile.token };
+  }
+  await writeJson(AUTH_JSON_PATH, auth);
+}
+
 export default function register(api: OpenClawPluginApi) {
   // --- Auto-fallback on billing errors ---
-  // Intercept outgoing messages that contain billing error text.
-  // When detected, rotate to the next auth profile and suppress the error message.
-  api.on("agent_end", async (event, ctx) => {
+  api.on("agent_end", async (event, _ctx) => {
     if (!event.success && event.error) {
       const errMsg = event.error.toLowerCase();
       const isBilling =
@@ -67,8 +100,24 @@ export default function register(api: OpenClawPluginApi) {
       updated.auth.order.anthropic = newOrder;
       await api.runtime.config.writeConfigFile(updated);
 
+      // Sync auth.json so the fallback actually takes effect
+      try {
+        const profiles = await readJson(AUTH_PROFILES_PATH);
+        const nextProfile = profiles.profiles?.[next];
+        if (nextProfile) {
+          await syncAuthJson(nextProfile);
+          profiles.lastGood ??= {};
+          profiles.lastGood.anthropic = next;
+          await writeJson(AUTH_PROFILES_PATH, profiles);
+        }
+      } catch (err: any) {
+        api.logger.warn(
+          `[auth-switch] Failed to sync auth.json for fallback: ${err?.message ?? err}`,
+        );
+      }
+
       api.logger.warn(
-        `[auth-switch] Billing error on ${failed}, auto-switched to ${next}. Restart needed to apply.`,
+        `[auth-switch] Billing error on ${failed}, auto-switched to ${next}. Send /restart to apply.`,
       );
     }
   });
@@ -80,7 +129,9 @@ export default function register(api: OpenClawPluginApi) {
       content.includes("billing error") &&
       content.includes("run out of credits")
     ) {
-      api.logger.info("[auth-switch] Suppressed billing error message to user");
+      api.logger.info(
+        "[auth-switch] Suppressed billing error message to user",
+      );
       return { cancel: true };
     }
   });
@@ -97,7 +148,9 @@ export default function register(api: OpenClawPluginApi) {
       const order: string[] = cfg.auth?.order?.anthropic ?? [];
       const baseUrl: string | null =
         cfg.models?.providers?.anthropic?.baseUrl ?? null;
-      const isOat = order[0] === OAT_PROFILE;
+
+      const oatInfo = await findOatProfile();
+      const isOat = oatInfo ? order[0] === oatInfo.id : false;
 
       // --- /auth ---
       if (!action || action === "status") {
@@ -106,9 +159,8 @@ export default function register(api: OpenClawPluginApi) {
         try {
           const p = await readJson(AUTH_PROFILES_PATH);
           const k = p.profiles?.[API_PROFILE]?.key ?? "";
-          const t = p.profiles?.[OAT_PROFILE]?.token ?? "";
           if (k) apiKeyDisplay = mask(k);
-          if (t) oatDisplay = mask(t);
+          if (oatInfo) oatDisplay = mask(oatInfo.token);
         } catch {}
 
         return {
@@ -117,20 +169,21 @@ export default function register(api: OpenClawPluginApi) {
             `Base URL: ${baseUrl ?? "api.anthropic.com"}`,
             `API Key: ${apiKeyDisplay}`,
             `OAT Token: ${oatDisplay}`,
-          ].join("\n"),
+            oatInfo ? `OAT Profile: ${oatInfo.id}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
         };
       }
 
       // --- /auth oat ---
       if (action === "oat") {
         try {
-          const profiles = await readJson(AUTH_PROFILES_PATH);
-          const oatToken = profiles.profiles?.[OAT_PROFILE]?.token;
-          if (!oatToken) {
+          if (!oatInfo) {
             return {
               text:
-                `OAT profile (${OAT_PROFILE}) not found.\n` +
-                "Run openclaw authorize to add an OAT credential first.",
+                "No OAT profile found in auth-profiles.json.\n" +
+                "Run `openclaw authorize` to add an OAT credential first.",
             };
           }
 
@@ -139,20 +192,28 @@ export default function register(api: OpenClawPluginApi) {
           const next = JSON.parse(JSON.stringify(cfg)) as any;
           next.auth ??= {};
           next.auth.order ??= {};
-          next.auth.order.anthropic = [OAT_PROFILE];
+          next.auth.order.anthropic = [oatInfo.id];
+          next.auth.profiles = {
+            [oatInfo.id]: { provider: "anthropic", mode: "token" },
+          };
           if (next.models?.providers?.anthropic) {
-            next.models.providers.anthropic.baseUrl = "https://api.anthropic.com";
+            next.models.providers.anthropic.baseUrl =
+              "https://api.anthropic.com";
             next.models.providers.anthropic.models ??= [];
           }
           await api.runtime.config.writeConfigFile(next);
 
+          // Sync auth.json
+          await syncAuthJson({ type: "token", token: oatInfo.token });
+
+          const profiles = await readJson(AUTH_PROFILES_PATH);
           profiles.lastGood ??= {};
-          profiles.lastGood.anthropic = OAT_PROFILE;
+          profiles.lastGood.anthropic = oatInfo.id;
           await writeJson(AUTH_PROFILES_PATH, profiles);
 
           return {
             text:
-              "Switched to OAT mode (api.anthropic.com).\n" +
+              `Switched to OAT mode (api.anthropic.com, profile: ${oatInfo.id}).\n` +
               "Send /restart to apply.",
           };
         } catch (err: any) {
@@ -186,6 +247,9 @@ export default function register(api: OpenClawPluginApi) {
         next.auth ??= {};
         next.auth.order ??= {};
         next.auth.order.anthropic = [API_PROFILE];
+        next.auth.profiles = {
+          [API_PROFILE]: { provider: "anthropic", mode: "api_key" },
+        };
         next.models ??= {};
         next.models.providers ??= {};
         next.models.providers.anthropic ??= {};
@@ -207,6 +271,12 @@ export default function register(api: OpenClawPluginApi) {
           profiles.profiles[API_PROFILE].key = newKey;
         }
         await writeJson(AUTH_PROFILES_PATH, profiles);
+
+        // Sync auth.json
+        const apiKey = newKey || profiles.profiles?.[API_PROFILE]?.key;
+        if (apiKey) {
+          await syncAuthJson({ type: "api_key", key: apiKey });
+        }
 
         const keyLine = newKey ? `\nAPI Key: ${mask(newKey)}` : "";
         return {
