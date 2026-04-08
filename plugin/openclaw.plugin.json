@@ -1,0 +1,12 @@
+{
+  "id": "auth-switch",
+  "name": "Auth Switch",
+  "description": "View and switch Anthropic auth mode (OAT / API) from chat.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": { "type": "boolean" }
+    }
+  }
+}
